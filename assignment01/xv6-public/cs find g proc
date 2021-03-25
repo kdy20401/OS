@@ -1,0 +1,19 @@
+#include "types.h"
+#include "defs.h"
+
+// Wrapper for my_syscall
+int
+get_parent_process_id()
+{
+    return myproc()->parent->pid;
+}
+
+int
+sys_getppid(void)
+{
+    int pid
+
+    return printk_str(str);
+}
+
+
