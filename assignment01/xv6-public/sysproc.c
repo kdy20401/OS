@@ -89,10 +89,3 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
-
-// wrapper function for getppid()
-int
-sys_getppid()
-{
-    return getppid();
-}

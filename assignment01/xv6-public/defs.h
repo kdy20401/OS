@@ -120,7 +120,7 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-int             getppid(void);
+
 // swtch.S
 void            swtch(struct context**, struct context*);
 
@@ -186,8 +186,10 @@ void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 
-// prac_syscall
+// prac_syscall1.c
 int             get_parent_process_id();
+
+// prac_syscall2.c
 int             getppid(void);
 
 // number of elements in fixed-size array
