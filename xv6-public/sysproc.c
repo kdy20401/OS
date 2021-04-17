@@ -96,3 +96,17 @@ sys_getppid()
 {
     return getppid();
 }
+
+// wrapper function for yield()
+void
+sys_yield()
+{
+    return yield();
+}
+
+// wrapper function for getlev()
+int
+sys_getlev()
+{
+    return getlev();
+}

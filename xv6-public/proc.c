@@ -4,13 +4,18 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "x86.h"
-#include "proc.h"
 #include "spinlock.h"
+#include "proc.h"
 
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable;
+
+struct {
+    struct queue queues[LEVEL];
+    int tick;
+} mlfq;
 
 static struct proc *initproc;
 
@@ -20,10 +25,160 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
+// struct proc*
+// selectproc(void)
+// {
+//     struct proc *p, *sp;
+//
+//     p = top();
+//     sp = top();
+//
+//     if(p != NULL && sp != NULL) {
+//         if(p->pass >= sp->pass) {
+//             handlesq();
+//             return sp;
+//         }else {
+//             handlemlfq();
+//             return p;
+//         }
+//     }else if(p != NULL && sp == NULL) {
+//         handlemlfq();
+//         return p;
+//     }else if(p == NULL && sp != NULL) {
+//         handlesq();
+//         return sp;
+//     }
+// }
+//
+void
+initmlfq(void)
+{
+    for(int i = 0; i < LEVEL; i++){
+        mlfq.queues[i].head = 0;
+        mlfq.queues[i].tail = -1;
+        mlfq.queues[i].level = i;
+        mlfq.queues[i].procnum = 0;
+        mlfq.queues[i].tick = 0;
+    }
+
+    mlfq.queues[0].timeslice = LEV0_TS;
+    mlfq.queues[1].timeslice = LEV1_TS;
+    mlfq.queues[2].timeslice = LEV2_TS;
+
+    mlfq.queues[0].timeallotment = LEV0_TA;
+    mlfq.queues[1].timeallotment = LEV1_TA;
+    mlfq.queues[2].timeallotment = LEV2_TA;
+}
+
+
+int
+ismlfqempty(void)
+{
+    for(int level = 0; level < LEVEL; level++) {
+        if(mlfq.queues[level].procnum != 0)
+            return 0;
+    }
+    return 1;
+}
+
+// add a process to queue of specific level
+void
+enqueue(struct proc *p, int level)
+{
+    struct queue *q;
+
+    q = &mlfq.queues[level];
+    q->tail++;
+    q->tail %= NPROC;
+    q->arr[q->tail].p = p;
+    
+    // when moving a process to below level queue,
+    // it's tick value should be changed to 0
+    if(p->mlfqlev != level) 
+        q->arr[q->tail].tick = 0;
+
+    p->mlfqlev = level;
+    q->procnum++;
+}
+
+// remove a process from queue of specific level
+// and return the process
+struct proc*
+dequeue(struct queue *q)
+{
+    struct proc *p;
+
+    p = q->arr[q->head].p;
+    q->head++;
+    q->head %= NPROC;
+    q->procnum--;
+    
+    return p;
+}
+
+// to prevent starvation, move all process up to the highest queue
+void boost(void)
+{
+    struct queue *q;
+
+    for(int level = 1; level < LEVEL; level++) {
+        q = &mlfq.queues[level];
+        while(q->procnum != 0)
+            enqueue(dequeue(q), 0);
+        q->tick = 0;
+    }
+
+    mlfq.queues[0].tick = 0; // needed?
+    mlfq.tick = 0;
+}   
+
+
+// get a process of the highest priority in mlfq
+struct proc*
+top(void)
+{
+    int level;
+    struct queue *q;
+    struct proc *p;
+
+    // find a level of queue where the process of the highest priority exists
+    level = 0;
+    while(level < LEVEL-1 && mlfq.queues[level].procnum == 0)
+        level++;
+    q = &mlfq.queues[level];
+    p = q->arr[q->head].p;
+
+    // process is no longer runnable : remove from mlfq
+    if(p->state != RUNNABLE) {
+        p->mlfqlev = -1;
+        dequeue(q);
+        return NULL;
+    }
+
+    mlfq.tick++;
+    q->tick++;
+    q->arr[q->head].tick++;
+    
+    // if the process stays as much queue's time allotment
+    // move process to queue one level below
+    if(q->level < LEVEL-1 && q->arr[q->head].tick >= q->timeallotment)
+        enqueue(dequeue(q), level+1);
+    // move process to tail at the every queue's timeslice
+    else if(q->tick % q->timeslice == 0)
+        enqueue(dequeue(q), level);
+
+    // move all processes to the topmost queue at the every boost time(100 tick)
+    if(mlfq.tick == BOOSTTIME)
+        boost();    
+
+    return p;
+}
+
 void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
+  initmlfq();
 }
 
 // Must be called with interrupts disabled
@@ -88,7 +243,10 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-
+ 
+  // initialize mlfq queue level value
+  p->mlfqlev = -1;
+  
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -311,6 +469,7 @@ wait(void)
   }
 }
 
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -332,13 +491,35 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
+        
+      // insert only runnable process into mlfq and
+      // choose a process with the highest priority
+      
+      // check process already exists in mlfq
+      if(p->mlfqlev == -1) {
+        enqueue(p, 0);
+      }
+
+      // p = selectproc();
+      while((p = top()) == NULL);
+      
+      // if(p == NULL) {
+      //     // there is no process in mlfq
+      //     if(ismlfqempty())
+      //         continue;
+      //     // the process has been already terminated
+      //     else
+      //         goto here;
+      // }
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
+
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
@@ -538,4 +719,10 @@ int
 getppid(void)
 {
     return myproc()->parent->pid;
+}
+
+int
+getlev()
+{
+    return myproc()->mlfqlev;
 }

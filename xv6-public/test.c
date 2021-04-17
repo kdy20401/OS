@@ -1,11 +1,23 @@
-#include "types.h"
-#include "stat.h"
-#include "user.h"
+#include <stdio.h>
+#include <stdlib.h>
 
-int
-main(int argc, char *argv[])
+
+struct node {
+    int val;
+    struct node *next;
+}node;
+
+int arr[] = {
+[1] 1,
+[2] 2,
+[3] 3,
+};
+
+int main(int argc, char *argv[])
 {
-    printf(1, "my pid is %d\n", getpid());
-    printf(1, "my ppid is %d\n", getppid());
-    exit();
+    for(int i = 1; i <= 3; i++)
+    {
+        printf("%d\n", arr[i]);
+    }
+    return 0;
 }

@@ -22,3 +22,5 @@
 #define SYS_close  21
 #define SYS_getppid 22
 #define SYS_myfunction 23
+#define SYS_yield 24
+#define SYS_getlev 25

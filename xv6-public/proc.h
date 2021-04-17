@@ -49,6 +49,8 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  int stride;
+  int mlfqlev;                 // level of queue in mlfq
 };
 
 // Process memory is laid out contiguously, low addresses first:
@@ -56,3 +58,40 @@ struct proc {
 //   original data and bss
 //   fixed-size stack
 //   expandable heap
+
+// mlfq structure
+#define LEVEL 3
+#define LEV0_TS 1
+#define LEV1_TS 2
+#define LEV2_TS 4
+#define LEV0_TA 5
+#define LEV1_TA 10
+#define LEV2_TA 2100000000
+
+#define BOOSTTIME 100
+#define NULL 0
+
+struct procnode {
+    struct proc *p;
+    int tick;
+};
+
+struct queue{
+    struct procnode arr[NPROC];
+    int head;
+    int tail;
+    int level;
+    int procnum;
+    int tick;
+    int timeslice;
+    int timeallotment;
+};
+
+// functions used in scheduler()
+// void initmlfq();
+// void enqueue(struct proc *p);
+// struct proc *top(void);
+// int ismlfqempty();
+// void dequeue(struct queue *q, struct node *n);
+// void decrease(struct node *n, int curlevel);
+// void boost();

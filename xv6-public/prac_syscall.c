@@ -8,7 +8,7 @@ printk_str(char *str)
     return 0xABCDABCD;
 }
 
-// Wrapper for my_syscall
+// Wrapper for printk_str(char *str)
 int
 sys_myfunction(void)
 {
