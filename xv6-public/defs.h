@@ -122,14 +122,29 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+
+void             handlemlfq(int level);
+int             topqlev(void);
+struct proc*    mlfqtop(void);
+struct proc*    selectmlfqp(void);
+// void            handlemlfq(void);
+void            min_heapify(struct proc *a[], int i, int size);
+int             push(struct proc *p);
+struct proc*    pop(void);
+struct proc*    strideqtop(void);
+struct proc*    selectstrideqp(void);
+void            handlestrideq(void);
+struct proc*    selectproc(void);
+
+void            initmlfq(void);
+void            enqueue1(struct proc *p);
+void            enqueue(struct proc *p, int level, int tick);
+struct proc*    dequeue(struct queue *q);
+void            boost(void);
+void            initstrideq(void);
 int             getppid(void);
 int             getlev(void);
-void            initmlfq(void);
-int             ismlfqempty(void);
-void            enqueue(struct proc *p, int level);
-struct proc*    dequeue(struct queue *q);
-struct proc*    top(void);
-void            boost(void);
+int             set_cpu_share(int share);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

@@ -15,9 +15,7 @@ int arr[] = {
 
 int main(int argc, char *argv[])
 {
-    for(int i = 1; i <= 3; i++)
-    {
-        printf("%d\n", arr[i]);
-    }
+    printf("%d\n", node.val);
     return 0;
+
 }

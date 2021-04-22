@@ -12,51 +12,51 @@
 
 #define MLFQ_LEVEL		(3)	/* Number of level(priority) of MLFQ scheduler */
 
-// #define WORKLOAD_NUM	(4) /* The number of workloads */
 #define WORKLOAD_NUM	(2) /* The number of workloads */
+
 /**
  * This function requests portion of CPU resources with given parameter
  * value by calling set_cpu_share() system call.
  * It reports the cnt value which have been accumulated during LIFETIME.
  */
-// void
-// test_stride(int portion)
-// {
-//     int cnt = 0;
-//     int i = 0;
-//     int start_tick;
-//     int curr_tick;
-//
-//     if (set_cpu_share(portion) != 0) {
-//         printf(1, "FAIL : set_cpu_share\n");
-//         return;
-//     }
-//
-//     /* Get start tick */
-//     start_tick = uptime();
-//
-//     for (;;) {
-//         i++;
-//         if (i >= COUNT_PERIOD) {
-//             cnt++;
-//             i = 0;
-//
-//             /* Get current tick */
-//             curr_tick = uptime();
-//
-//             if (curr_tick - start_tick > LIFETIME) {
-//                 /* Time to terminate */
-//                 break;
-//             }
-//         }
-//     }
-//
-//     /* Report */
-//     printf(1, "STRIDE(%d%%), cnt : %d\n", portion, cnt);
-//
-//     return;
-// }
-//
+void
+test_stride(int portion)
+{
+    int cnt = 0;
+    int i = 0;
+    int start_tick;
+    int curr_tick;
+
+    if (set_cpu_share(portion) != 0) {
+        printf(1, "FAIL : set_cpu_share\n");
+        return;
+    }
+
+    /* Get start tick */
+    start_tick = uptime();
+
+    for (;;) {
+        i++;
+        if (i >= COUNT_PERIOD) {
+            cnt++;
+            i = 0;
+
+            /* Get current tick */
+            curr_tick = uptime();
+
+            if (curr_tick - start_tick > LIFETIME) {
+                /* Time to terminate */
+                break;
+            }
+        }
+    }
+
+    /* Report */
+    printf(1, "STRIDE(%d%%), cnt : %d\n", portion, cnt);
+
+    return;
+}
+
 /**
  * This function request to make this process scheduled in MLFQ. 
  * MLFQ_NONE			: report only the cnt value
@@ -130,10 +130,10 @@ main(int argc, char *argv[])
 
 	/* Workload list */
 	struct workload workloads[WORKLOAD_NUM] = {
-		/* Process schedu// led by Stride scheduler, use 5% of CPU resources */
-		// {test_stride, 5},
-		// /* Process scheduled by Stride scheduler, use 15% of CPU resources */
-		// {test_stride, 15},
+        /* Process scheduled by Stride scheduler, use 5% of CPU resources */
+        // {test_stride, 5},
+        // /* Process scheduled by Stride scheduler, use 15% of CPU resources */
+        // {test_stride, 15},
 
 		/* Process scheduled by MLFQ scheduler, does not yield itself */
 		{test_mlfq, MLFQ_LEVCNT},
@@ -158,11 +158,11 @@ main(int argc, char *argv[])
 			exit();
 		}
 	}
-
+    
 	for (i = 0; i < WORKLOAD_NUM; i++) {
 		wait();
 	}
-
+    // printf(1, "test_scheduler.c fin\n");
 	exit();
 }
 

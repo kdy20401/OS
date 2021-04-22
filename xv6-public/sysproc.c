@@ -110,3 +110,15 @@ sys_getlev()
 {
     return getlev();
 }
+
+// wrapper function for set_cpu_share(int share)
+int
+sys_set_cpu_share(void)
+{
+    int p;
+
+    if(argint(0, &p) < 0)
+        return -1;
+
+    return set_cpu_share(p);
+}
