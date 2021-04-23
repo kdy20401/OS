@@ -52,7 +52,7 @@ test_stride(int portion)
     }
 
     /* Report */
-    printf(1, "STRIDE(%d%%), cnt : %d\n", portion, cnt);
+    printf(1, "STRIDE(%d%%):%d\n", portion, cnt);
 
     return;
 }
@@ -106,13 +106,13 @@ test_mlfq(int type)
 	}
 
 	/* Report */
-	if (type == MLFQ_LEVCNT || type == MLFQ_LEVCNT_YIELD ) {
-		printf(1, "MLfQ(%s), cnt : %d, lev[0] : %d, lev[1] : %d, lev[2] : %d\n",
-				type == MLFQ_LEVCNT ? "compute" : "yield", cnt, cnt_level[0], cnt_level[1], cnt_level[2]);
-	} else {
-		printf(1, "MLfQ(%s), cnt : %d\n",
-				type == MLFQ_NONE ? "compute" : "yield", cnt);
-	}
+	// if (type == MLFQ_LEVCNT || type == MLFQ_LEVCNT_YIELD ) {
+	//     printf(1, "MLfQ(%s), cnt : %d, lev[0] : %d, lev[1] : %d, lev[2] : %d\n",
+	//             type == MLFQ_LEVCNT ? "compute" : "yield", cnt, cnt_level[0], cnt_level[1], cnt_level[2]);
+	// } else {
+	//     printf(1, "MLfQ(%s), cnt : %d\n",
+	//             type == MLFQ_NONE ? "compute" : "yield", cnt);
+	// }
 
 	return;
 }

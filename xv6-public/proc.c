@@ -219,19 +219,21 @@ selectstrideqp(void)
         p = strideq.arr[1].p;
         pass = strideq.arr[1].pass;
 
-        if(p->state == ZOMBIE || p->state == UNUSED) {
+        if(p->mlfqlev == -1) {
             // cprintf("state : %d, mlfqlev : %d\n", p->state, p->mlfqlev);
             p = pop();
             strideqticket += p->share;
             if(strideq.size == 0) {
                 mlfq.pass = 0;
             }
-        }else {
+        }else if(p->state == RUNNABLE){
             if(pass < mlfq.pass) {
                 return p;
             }else {
                 return NULL;
             }
+        }else {
+            cprintf("state : %d\n", p->state);
         }
     }
     return NULL;
@@ -626,6 +628,7 @@ exit(void)
   }
 
   // Jump into the scheduler, never to return.
+  curproc->mlfqlev = -1;
   curproc->state = ZOMBIE;
   sched();
   panic("zombie exit");
