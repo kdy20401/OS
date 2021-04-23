@@ -52,7 +52,6 @@ struct proc {
   int mlfqlev;                 // level of queue in mlfq
   int share;
   double stride;
-  double pass;
 };
 
 // Process memory is laid out contiguously, low addresses first:
@@ -72,8 +71,14 @@ struct proc {
 #define LEV2_TA 2100000000
 #define BOOSTTIME 100
 #define STRIDEMAX 80
+
+struct strideqnode {
+    struct proc *p;
+    double pass;
+};
+
 #define SWAP(X, Y) { \
-        struct proc *tmp = X; \
+        struct strideqnode tmp = X; \
         X = Y;       \
         Y = tmp;     \
 };
@@ -93,3 +98,5 @@ struct queue{
     int timeslice;
     int timeallotment;
 };
+
+

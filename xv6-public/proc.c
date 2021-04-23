@@ -24,15 +24,17 @@ struct {
     struct queue queues[LEVEL];
     int tick;
     int size;
+    double pass;
+    double stride;
 } mlfq;
 
 struct {
-    struct proc *arr[NPROC+1];
+    struct strideqnode arr[NPROC+1];
     int size;
 }strideq;
 
-int mlfqshare = 0;
-int strideqshare = 0;
+int mlfqticket = 20;
+int strideqticket = 80;
 
 int
 topqlev(void)
@@ -76,28 +78,27 @@ selectmlfqp(void)
         
         while(head != tail) {
             p = q->arr[head].p;
-            if(p->state == RUNNABLE) {
-                return p;
-            }else if(p->state == ZOMBIE || p->state == UNUSED) {
+            if(p->state == ZOMBIE || p->state == UNUSED || p->mlfqlev == -2) {
                 dequeue(q);
-            }else if(p->state == SLEEPING) {
-                p = dequeue(q);
-                enqueue(p, level, q->arr[q->head].tick);
-            }
+            }else if(p->state == SLEEPING || p->state == EMBRYO) {
+                enqueue(dequeue(q), level, q->arr[q->head].tick);
+            }else{ // RUNNABLE
+                return p;
+            } 
+            
             head++;
             head = head % NPROC;
         }
 
         p = q->arr[head].p;
-        if(p->state == RUNNABLE) {
-            return p;
-        }else if(p->state == ZOMBIE || p->state == UNUSED) {
+        if(p->state == ZOMBIE || p->state == UNUSED  || p->mlfqlev == -2) {
             dequeue(q);
-        }else if(p->state == SLEEPING) {
-            p = dequeue(q);
-            enqueue(p, level, q->arr[q->head].tick);
+        }else if(p->state == SLEEPING || p->state == EMBRYO) {
+            enqueue(dequeue(q), level, q->arr[q->head].tick);
+        }else{ // RUNNABLE
+            return p;
         }
-
+            
     }
     return NULL;
 }
@@ -108,66 +109,45 @@ handlemlfq(int level)
     struct queue *q;
     
     q = &mlfq.queues[level];
+    // cprintf("in handle : qlevel = %d, procnum = %d\n", level, q->procnum);
     mlfq.tick++;
     q->tick++;
     q->arr[q->head].tick++;
 
     // if the process stays as much queue's time allotment
     // move process to queue one level below
-    if(level < LEVEL-1 && q->arr[q->head].tick >= q->timeallotment)
+    if(level < LEVEL-1 && q->arr[q->head].tick >= q->timeallotment) {
         enqueue(dequeue(q), level+1, 0);
+    }
     // move process to tail at the every queue's timeslice
-    else if(q->tick % q->timeslice == 0)
+    else if(q->tick % q->timeslice == 0) {
         enqueue(dequeue(q), level, q->arr[q->head].tick);
-
+    }
     // move all processes to the topmost queue at the every boost time(100 tick)
     if(mlfq.tick == BOOSTTIME)
         boost();
+
+    mlfq.pass += mlfq.stride;
 }
-// 
-// void
-// handlemlfq(void)
-// {
-//     struct queue *q;
-//     int level;
-//
-//     level = topqlev();
-//     q = &mlfq.queues[level];
-//     mlfq.tick++;
-//     q->tick++;
-//     q->arr[q->head].tick++;
-//
-//     // if the process stays as much queue's time allotment
-//     // move process to queue one level below
-//     if(level < LEVEL-1 && q->arr[q->head].tick >= q->timeallotment)
-//         enqueue(dequeue(q), level+1, 0);
-//     // move process to tail at the every queue's timeslice
-//     else if(q->tick % q->timeslice == 0)
-//         enqueue(dequeue(q), level, q->arr[q->head].tick);
-//
-//     // move all processes to the topmost queue at the every boost time(100 tick)
-//     if(mlfq.tick == BOOSTTIME)
-//         boost();
-// }
 
 void
-min_heapify(struct proc *a[], int i, int size)
+min_heapify(struct strideqnode a[], int i, int size)
 {
     int j;
 
     if (2*i > size) {
         return;
     }else if (2*i == size) {
-        if (a[i]->pass > a[2*i]->pass) {
+        if (a[i].pass > a[2*i].pass) {
             SWAP(a[i], a[2*i]);
         }
     }else {
-        if (a[2*i]->pass < a[2*i+1]->pass)
+        if (a[2*i].pass < a[2*i+1].pass)
             j = 2*i;
         else
             j = 2*i+1;
 
-        if (a[i]->pass > a[j]->pass) {
+        if (a[i].pass > a[j].pass) {
             SWAP(a[i], a[j]);
             min_heapify(a, j, size);
         }
@@ -176,18 +156,21 @@ min_heapify(struct proc *a[], int i, int size)
 
 // push a process into stride queue
 int
-push(struct proc *p)
+push(struct proc *p, double pass)
 {
     int i;
     
-    if(strideq.size >= NPROC)
+    if(strideq.size >= NPROC) {
+        panic("push() : stride queue full\n");
         return -1;
+    }
 
-    strideq.arr[++strideq.size] = p;
-    i = strideq.size;
+    i = ++strideq.size;
+    strideq.arr[i].p = p;
+    strideq.arr[i].pass = pass;
 
     while(i > 1) {
-        if(strideq.arr[i]->pass < strideq.arr[i/2]->pass) {
+        if(strideq.arr[i].pass < strideq.arr[i/2].pass) {
             SWAP(strideq.arr[i], strideq.arr[i/2]);
             i /= 2;
         }else {
@@ -207,7 +190,7 @@ pop(void)
     p = NULL;
 
     if(strideq.size > 0) {
-        p = strideq.arr[1];
+        p = strideq.arr[1].p;
         SWAP(strideq.arr[1], strideq.arr[strideq.size]);
         min_heapify(strideq.arr, 1, --strideq.size);
     }
@@ -221,7 +204,7 @@ strideqtop(void)
     if(strideq.size == 0)
         return NULL;
     else
-        return strideq.arr[1];
+        return strideq.arr[1].p;
 }
 
 
@@ -229,75 +212,69 @@ struct proc*
 selectstrideqp(void)
 {
     struct proc *p;
-
+    double pass;
+    
     // select process from stride queue
-    while(1) {
-        p = strideqtop();
-       
-        // stride queue is empty
-        if(p == NULL) {
-            break;
-        // process has already terminated
-        }else if(p->mlfqlev != -2) {
-            pop();
-            // strideqshare -= p->share;
+    while(strideq.size > 0) {
+        p = strideq.arr[1].p;
+        pass = strideq.arr[1].pass;
+
+        if(p->state == ZOMBIE || p->state == UNUSED) {
+            // cprintf("state : %d, mlfqlev : %d\n", p->state, p->mlfqlev);
+            p = pop();
+            strideqticket += p->share;
+            if(strideq.size == 0) {
+                mlfq.pass = 0;
+            }
         }else {
-            break;
+            if(pass < mlfq.pass) {
+                return p;
+            }else {
+                return NULL;
+            }
         }
     }
-
-    return p;
+    return NULL;
 }
     
 void
 handlestrideq(void)
 {
     struct proc *p;
+    double pass;
     
+    pass = strideq.arr[1].pass;
     p = pop();
-    p->pass += p->stride;
-    push(p);
+    pass += p->stride;
+    push(p, pass);
 }
 
 struct proc*
 selectproc(void)
 {
     struct proc *mp;
+    struct proc *sp;
     
     // select process from mlfq and stride queue
+    // mp == NULL -> no runnable process in mlfq
+    // mp != NULL -> runnable process in mlfq
     mp = selectmlfqp();
-    if(mp != NULL) {
-        handlemlfq(mp->mlfqlev);
+    // sp == NULL -> no process in stride queue
+    // sp == NULL -> mlfq's process should be selected
+    // sp != NULL -> stride queue's process should be seleted
+    sp = selectstrideqp();
+
+    if(sp != NULL) {
+        handlestrideq();
+        return sp;
+    }else {
+        if(mp != NULL) {
+            handlemlfq(mp->mlfqlev);
+            return mp;
+        }else {
+            return NULL;
+        }
     }
-
-    // sp = selectstrideqp();
-    
-//     // select the process between them
-    // if(mp != NULL && sp != NULL) {
-    //     // cprintf("mlfq and stride queue\n");
-    //     if(mp->pass >= sp->pass) {
-    //         handlestrideq();
-    //         p = sp;
-    //     }else {
-    //         mp->pass += mp->stride;
-    //         handlemlfq();
-    //         p = mp;
-    //     }
-    // }else if(mp != NULL && sp == NULL) {
-    //     // cprintf("only mlfq\n");
-    //     handlemlfq();
-    //     p = mp;
-    // }else if(mp == NULL && sp != NULL) {
-    //     // cprintf("only stride queue\n");
-    //     handlestrideq();
-    //     p = sp;
-    // }else{
-    //     // cprintf("both empty.\n");
-    // }
-//
-    
-
-    return mp;
 }
 
 void
@@ -321,6 +298,8 @@ initmlfq(void)
     
     mlfq.tick = 0;
     mlfq.size = 0;
+    mlfq.pass = 0;
+    mlfq.stride = 100.0/mlfqticket;
 }
 
 
@@ -329,25 +308,13 @@ void
 enqueue1(struct proc *p)
 {
     struct queue *q;
-    // double minpass;
     
     q = &mlfq.queues[0];
     if(q->procnum == NPROC) {
-        cprintf("level 0 queue is full\n");
+        panic("level 0 queue is full\n");
         return;
     }
 
-    // minpass = 1000000.0;
-    // for(struct proc *i = ptable.proc; i < &ptable.proc[NPROC]; i++) {
-    //     if(i->mlfqlev != -1) {
-    //         if(i->pass < minpass) {
-    //             minpass = i->pass;
-    //         }
-    //     }
-    // }
-    
-    // minpass can't have 100000.0?
-    // p->pass = minpass;
     p->mlfqlev = 0;
     q->tail++;
     q->tail %= NPROC;
@@ -384,9 +351,10 @@ struct proc*
 dequeue(struct queue *q)
 {
     struct proc *p;
-    
-    if(q->procnum <= 0)
+
+    if(q->procnum <= 0) {
         return NULL;
+    }
 
     p = q->arr[q->head].p;
     q->head++;
@@ -413,17 +381,10 @@ void boost(void)
 }   
 
 void
-initstrideq(void)
-{
-    strideq.size = 0;
-}
-
-void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
   initmlfq();
-  initstrideq();
 }
 
 // Must be called with interrupts disabled
@@ -665,10 +626,6 @@ exit(void)
   }
 
   // Jump into the scheduler, never to return.
-  if(curproc->mlfqlev == -2) {
-    strideqshare -= curproc->share;
-  }
-  // curproc->mlfqlev = -1;
   curproc->state = ZOMBIE;
   sched();
   panic("zombie exit");
@@ -744,9 +701,11 @@ scheduler(void)
 
     while(mlfq.size > 0) {
       p = selectproc();
-
-      if(p == NULL)
+      if(p == NULL) {
+          // cprintf("no process!\n");
           break;
+      }
+
       
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -958,64 +917,104 @@ getlev(void)
     return myproc()->mlfqlev;
 }
 
+// int
+// set_cpu_share(int share)
+// {
+//     struct proc *p;
+//     int mlfqnum;
+//
+//     // CPU share of stride queue cannot exceed 80%
+//     if(strideqshare + share > STRIDEMAX || strideq.size >= NPROC)
+//         return -1;
+//
+//     // push into stride queue
+//     strideqshare += share;
+//     p = myproc();
+//     p->mlfqlev = -2;
+//     p->share = share;
+//     p->stride = 100.0/share;
+//     cprintf("set_cpu_share(%d%), stride : %d, pass : %d\n", share, (int)(p->stride), (int)(p->pass));
+//     push(p);
+//
+//     // share value may be double?
+//     // how about mlfq information? (e.g., mlfq.size, q.procnum)
+//
+//     mlfqnum = 0;
+//     cprintf("strideqshare : %d\n", strideqshare);
+//     mlfqshare = 100-strideqshare;
+//
+//     // change share and stride of process in mlfq
+//     acquire(&ptable.lock);
+//
+//     cprintf("curproc's pid : %d\n", p->pid);
+//     cprintf("curproc's state : %d\n", p->state);
+//     // find the number of runnable process in mlfq
+//     for(struct proc *i = ptable.proc; i < &ptable.proc[NPROC]; i++) {
+//         int state;
+//         if(i->mlfqlev >= 0) {
+//             state = i->state;
+//             if(state != UNUSED && state != ZOMBIE && state != RUNNING) {
+//                 mlfqnum++;
+//             }
+//         }
+//     }
+//     cprintf("mlfqshare : %d mlfqnum : %d\n", mlfqshare, mlfqnum);
+//     if(mlfqnum > 0) {
+//         share = mlfqshare/mlfqnum;
+//
+//         for(struct proc *i = ptable.proc; i < &ptable.proc[NPROC]; i++) {
+//             int state;
+//             if(i->mlfqlev >= 0) {
+//                 state = i->state;
+//                 if(state != UNUSED && state != ZOMBIE && state != RUNNING) {
+//                     i->share = share;
+//                     i->stride = 100.0/share;
+//                 }
+//             }
+//         }
+//     }
+//
+//     release(&ptable.lock);
+//     cprintf("set_cpu_share(%d%) fin\n", share);
+//     return 0;
+// }
+
 int
 set_cpu_share(int share)
 {
-    struct proc *p;
-    int mlfqnum;
+    struct proc *p, *sp;
+    double minpass;
 
-    // CPU share of stride queue cannot exceed 80%
-    if(strideqshare + share > STRIDEMAX || strideq.size >= NPROC)
+    if(strideq.size == NPROC) {
+        panic("stride queue full\n");
         return -1;
+    }
 
-    // push into stride queue
-    strideqshare += share;
+    if(share > strideqticket) {
+        panic("no ticket left\n");
+        return -1;
+    }
+
+    strideqticket -= share;
     p = myproc();
     p->mlfqlev = -2;
     p->share = share;
     p->stride = 100.0/share;
-    cprintf("set_cpu_share(%d%), stride : %d, pass : %d\n", share, (int)(p->stride), (int)(p->pass));
-    push(p);
 
-    // share value may be double?
-    // how about mlfq information? (e.g., mlfq.size, q.procnum)
+    minpass = 10000000.0;
+    if(mlfq.pass < minpass) {
+        minpass = mlfq.pass;
+    } 
 
-    mlfqnum = 0;
-    cprintf("strideqshare : %d\n", strideqshare);
-    mlfqshare = 100-strideqshare;
-  
-    // change share and stride of process in mlfq
-    acquire(&ptable.lock);
-    
-    cprintf("curproc's pid : %d\n", p->pid);
-    cprintf("curproc's state : %d\n", p->state);
-    // find the number of runnable process in mlfq
-    for(struct proc *i = ptable.proc; i < &ptable.proc[NPROC]; i++) {
-        int state;
-        if(i->mlfqlev >= 0) {
-            state = i->state;
-            if(state != UNUSED && state != ZOMBIE && state != RUNNING) {
-                mlfqnum++;
+    for(int i = 1; i <= strideq.size; i++) {
+        sp = strideq.arr[i].p;
+        if(sp->mlfqlev == -2 && sp->state != ZOMBIE && sp->state != UNUSED) {
+            if(strideq.arr[i].pass < minpass) {
+                minpass = strideq.arr[i].pass;
             }
         }
     }
-    cprintf("mlfqshare : %d mlfqnum : %d\n", mlfqshare, mlfqnum);    
-    if(mlfqnum > 0) {
-        share = mlfqshare/mlfqnum;
-
-        for(struct proc *i = ptable.proc; i < &ptable.proc[NPROC]; i++) {
-            int state;
-            if(i->mlfqlev >= 0) {
-                state = i->state;
-                if(state != UNUSED && state != ZOMBIE && state != RUNNING) {
-                    i->share = share;
-                    i->stride = 100.0/share;
-                }
-            }
-        }
-    }
-
-    release(&ptable.lock);
-    cprintf("set_cpu_share(%d%) fin\n", share);
+    // cprintf("minpass : %d\n", (int)minpass);
+    push(p, minpass);
     return 0;
 }

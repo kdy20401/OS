@@ -11,6 +11,7 @@ struct stat;
 struct superblock;
 struct queue;
 struct node;
+struct strideqnode;
 
 // bio.c
 void            binit(void);
@@ -123,13 +124,12 @@ int             wait(void);
 void            wakeup(void*);
 void            yield(void);
 
-void             handlemlfq(int level);
+void            handlemlfq(int level);
 int             topqlev(void);
 struct proc*    mlfqtop(void);
 struct proc*    selectmlfqp(void);
-// void            handlemlfq(void);
-void            min_heapify(struct proc *a[], int i, int size);
-int             push(struct proc *p);
+void            min_heapify(struct strideqnode *a, int i, int size);
+int             push(struct proc *p, double pass);
 struct proc*    pop(void);
 struct proc*    strideqtop(void);
 struct proc*    selectstrideqp(void);
@@ -141,7 +141,6 @@ void            enqueue1(struct proc *p);
 void            enqueue(struct proc *p, int level, int tick);
 struct proc*    dequeue(struct queue *q);
 void            boost(void);
-void            initstrideq(void);
 int             getppid(void);
 int             getlev(void);
 int             set_cpu_share(int share);
