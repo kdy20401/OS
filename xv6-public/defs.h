@@ -123,27 +123,25 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-
-void            handlemlfq(int level);
-int             topqlev(void);
-struct proc*    mlfqtop(void);
-struct proc*    selectmlfqp(void);
-void            min_heapify(struct strideqnode *a, int i, int size);
-int             push(struct proc *p, double pass);
-struct proc*    pop(void);
-struct proc*    strideqtop(void);
-struct proc*    selectstrideqp(void);
-void            handlestrideq(void);
+int             getppid(void);
+// mlfq and stride scheduling
 struct proc*    selectproc(void);
-
+/* mlfq */
 void            initmlfq(void);
 void            enqueue1(struct proc *p);
 void            enqueue(struct proc *p, int level, int tick);
 struct proc*    dequeue(struct queue *q);
 void            boost(void);
-int             getppid(void);
-int             getlev(void);
-int             set_cpu_share(int share);
+void            updatemlfq(int level);
+struct proc*    selectmlfqp(void);
+int             getlev(void); // system call
+/* stride */
+void            min_heapify(struct strideqnode *a, int i, int size);
+int             push(struct proc *p, double pass);
+struct proc*    pop(void);
+void            updatestrideq(void);
+struct proc*    selectstrideqp(void);
+int             set_cpu_share(int share); // system call
 
 // swtch.S
 void            swtch(struct context**, struct context*);

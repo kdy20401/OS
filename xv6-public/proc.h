@@ -63,6 +63,7 @@ struct proc {
 // mlfq structure
 #define NULL 0
 #define LEVEL 3
+#define STRIDELEV -2
 #define LEV0_TS 1
 #define LEV1_TS 2
 #define LEV2_TS 4
@@ -98,5 +99,3 @@ struct queue{
     int timeslice;
     int timeallotment;
 };
-
-
