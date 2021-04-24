@@ -145,7 +145,7 @@ push(struct proc *p, double pass)
     int i;
     
     if(strideq.size >= NPROC) {
-        panic("push() : stride queue full\n");
+        // cprintf("push() : stride queue full\n");
         return -1;
     }
 
@@ -288,7 +288,7 @@ enqueue1(struct proc *p)
     
     q = &mlfq.queues[0];
     if(q->procnum == NPROC) {
-        panic("level 0 queue is full\n");
+        // cprintf("level 0 queue is full\n");
         return;
     }
 
@@ -913,12 +913,12 @@ set_cpu_share(int share)
     double minpass;
 
     if(strideq.size == NPROC) {
-        panic("stride queue full\n");
+        // cprintf("stride queue full\n");
         return -1;
     }
 
     if(share > strideqshare) {
-        panic("stride queue share cannot exceed 80%\n");
+        // cprintf("stride queue share cannot exceed 80%\n");
         return -1;
     }
 

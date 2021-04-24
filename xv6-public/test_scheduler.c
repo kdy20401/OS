@@ -131,9 +131,9 @@ main(int argc, char *argv[])
 	/* Workload list */
 	struct workload workloads[WORKLOAD_NUM] = {
         /* Process scheduled by Stride scheduler, use 5% of CPU resources */
-        {test_stride, 5},
+        {test_stride, 40},
         /* Process scheduled by Stride scheduler, use 15% of CPU resources */
-        {test_stride, 15},
+        {test_stride, 60},
 
 		/* Process scheduled by MLFQ scheduler, does not yield itself */
 		{test_mlfq, MLFQ_LEVCNT},
