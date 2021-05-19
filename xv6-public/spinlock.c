@@ -6,8 +6,8 @@
 #include "x86.h"
 #include "memlayout.h"
 #include "mmu.h"
-#include "proc.h"
 #include "spinlock.h"
+#include "proc.h"
 
 void
 initlock(struct spinlock *lk, char *name)
@@ -15,6 +15,33 @@ initlock(struct spinlock *lk, char *name)
   lk->name = name;
   lk->locked = 0;
   lk->cpu = 0;
+}
+
+// wrapper for acquire
+// for debugging
+void
+wrap_acquire(struct spinlock *lk, int line)
+{
+  pushcli(); // disable interrupts to avoid deadlock.
+  if(holding(lk)) {
+      // cprintf("tid of thread holding lock : %d\n", myproc()->curthd->tid);
+      // cprintf("deadlock at spinlock %d. curthd->tid = %d\n", lk, myproc()->curthd->tid);
+      cprintf("line : %d, tid : %d\n", line, myproc()->curthd->tid);
+      panic("acquire");
+  }
+
+  // The xchg is atomic.
+  while(xchg(&lk->locked, 1) != 0)
+    ;
+
+  // Tell the C compiler and the processor to not move loads or stores
+  // past this point, to ensure that the critical section's memory
+  // references happen after the lock is acquired.
+  __sync_synchronize();
+
+  // Record info about lock acquisition for debugging.
+  lk->cpu = mycpu();
+  getcallerpcs(&lk, lk->pcs);
 }
 
 // Acquire the lock.
@@ -25,8 +52,11 @@ void
 acquire(struct spinlock *lk)
 {
   pushcli(); // disable interrupts to avoid deadlock.
-  if(holding(lk))
-    panic("acquire");
+  if(holding(lk)) {
+      // cprintf("tid of thread holding lock : %d\n", myproc()->curthd->tid);
+      cprintf("deadlock at spinlock %d. curthd->tid = %d\n", lk, myproc()->curthd->tid);
+      panic("acquire");
+  }
 
   // The xchg is atomic.
   while(xchg(&lk->locked, 1) != 0)

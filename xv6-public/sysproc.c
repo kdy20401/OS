@@ -5,6 +5,7 @@
 #include "param.h"
 #include "memlayout.h"
 #include "mmu.h"
+#include "spinlock.h"
 #include "proc.h"
 
 int
@@ -121,4 +122,53 @@ sys_set_cpu_share(void)
         return -1;
 
     return set_cpu_share(p);
+}
+
+int
+sys_thread_create(void)
+{
+    thread_t *thread;
+    void * (*start_routine)(void *);
+    int arg;
+    
+    if(argptr(0, (void *)&thread, sizeof(thread_t*)) < 0)
+        return -1;
+    if(argptr(1, (void *)&start_routine, sizeof(start_routine)) < 0)
+        return -1;
+    if(argint(2, (void *)&arg) < 0) // sizeof(int) right?
+        return -1;
+  
+    // for debugging
+    // cprintf("thread : %d, arg : %d. thread_create()\n", thread, arg);
+    // cprintf("start_routine = %d\n", start_routine);
+    return thread_create(thread, start_routine, (void*)arg);
+};
+
+void
+sys_thread_exit(void)
+{
+    int retval;
+    
+    if(argint(0, (void *)&retval) < 0)
+        return;
+    
+    // for debugging
+    // cprintf("retval = %d, thread_exit()\n", retval);
+    return thread_exit((void*)retval);
+}
+
+int
+sys_thread_join(void)
+{
+    thread_t thread;
+    void **retval;
+
+    if(argint(0, &thread) < 0)
+        return -1;
+    if(argptr(1, (void *)&retval, sizeof(void*) < 0)) // ??
+        return -1;
+    
+    // for debugging
+    // cprintf("thread = %d, &retval add = %d\n", thread, retval);
+    return thread_join(thread, retval);
 }

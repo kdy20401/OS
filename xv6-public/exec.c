@@ -2,6 +2,7 @@
 #include "param.h"
 #include "memlayout.h"
 #include "mmu.h"
+#include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
 #include "x86.h"
@@ -30,7 +31,6 @@ exec(char *path, char **argv)
   pgdir = 0;
   // Check ELF header
   if(readi(ip, (char*)&elf, 0, sizeof(elf)) != sizeof(elf)) {
-     cprintf("B\n");
       goto bad;
   }
   if(elf.magic != ELF_MAGIC)
@@ -94,10 +94,11 @@ exec(char *path, char **argv)
   oldpgdir = curproc->pgdir;
   curproc->pgdir = pgdir;
   curproc->sz = sz;
-  curproc->tf->eip = elf.entry;  // main
-  curproc->tf->esp = sp;
+  curproc->curthd->tf->eip = elf.entry;  // main
+  curproc->curthd->tf->esp = sp;
   switchuvm(curproc);
   freevm(oldpgdir);
+
   return 0;
 
  bad:

@@ -34,16 +34,32 @@ struct context {
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+/* light weight process(thread) */
+struct thread{
+  int tid;                     // thread id designated by thread_create 1st argument
+  struct proc *parent;         // process who spawns the thread 
+  enum procstate state;         // thread state
+  struct context *context;     // swtch() here to run process
+  char *kstack;                // Bottom of kernel stack for this thread
+  struct trapframe *tf;        // Trap frame for current syscall
+  void *chan;
+  void *retval;
+};
+
+struct thdtable{
+  struct spinlock lock;
+  struct thread threads[NTHREAD];
+  int index;                      // index of thread in execution
+  int nexttid;     
+};
+
 // Per-process state
 struct proc {
   uint sz;                     // Size of process memory (bytes)
   pde_t* pgdir;                // Page table
-  char *kstack;                // Bottom of kernel stack for this process
   enum procstate state;        // Process state
   int pid;                     // Process ID
   struct proc *parent;         // Parent process
-  struct trapframe *tf;        // Trap frame for current syscall
-  struct context *context;     // swtch() here to run process
   void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed
   struct file *ofile[NOFILE];  // Open files
@@ -52,6 +68,14 @@ struct proc {
   int mlfqlev;                 // level of queue in mlfq
   int share;
   double stride;
+  struct thread *curthd;       // current execution flow
+  struct thdtable thdtable;    // thread table
+  int thdnum;                  // number of thread
+
+  /* fields moved to thread struct */
+  // struct context *context;     // swtch() here to run process
+  // struct trapframe *tf;        // Trap frame for current syscall
+  // char *kstack;                // Bottom of kernel stack for this process
 };
 
 // Process memory is laid out contiguously, low addresses first:
@@ -64,19 +88,14 @@ struct proc {
 #define NULL 0
 #define LEVEL 3
 #define STRIDELEV -2
-#define LEV0_TS 1
-#define LEV1_TS 2
-#define LEV2_TS 4
-#define LEV0_TA 5
-#define LEV1_TA 10
+#define LEV0_TS 5
+#define LEV1_TS 10
+#define LEV2_TS 20
+#define LEV0_TA 20
+#define LEV1_TA 40
 #define LEV2_TA 2100000000
-#define BOOSTTIME 100
+#define BOOSTTIME 200
 #define STRIDEMAX 80
-
-struct strideqnode {
-    struct proc *p;
-    double pass;
-};
 
 #define SWAP(X, Y) { \
         struct strideqnode tmp = X; \
@@ -98,4 +117,22 @@ struct queue{
     int tick;
     int timeslice;
     int timeallotment;
+};
+
+struct mlfq{ 
+    struct queue queues[LEVEL];
+    int tick;
+    int size;
+    double pass;
+    double stride;
+};
+
+struct strideqnode {
+    struct proc *p;
+    double pass;
+};
+
+struct strideq{
+    struct strideqnode arr[NPROC+1];
+    int size;
 };

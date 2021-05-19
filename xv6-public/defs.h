@@ -12,6 +12,7 @@ struct superblock;
 struct queue;
 struct node;
 struct strideqnode;
+struct thread;
 
 // bio.c
 void            binit(void);
@@ -132,7 +133,7 @@ void            enqueue1(struct proc *p);
 void            enqueue(struct proc *p, int level, int tick);
 struct proc*    dequeue(struct queue *q);
 void            boost(void);
-void            updatemlfq(int level);
+void            updatemlfq(struct proc *p);
 struct proc*    selectmlfqp(void);
 int             getlev(void); // system call
 /* stride */
@@ -142,6 +143,13 @@ struct proc*    pop(void);
 void            updatestrideq(void);
 struct proc*    selectstrideqp(void);
 int             set_cpu_share(int share); // system call
+/* light weight process */
+int thread_create(int * thread, void * (*start_routine)(void *), void *arg);
+void thread_exit(void *retval);
+int thread_join(int thread, void **retval);
+void yield2(void);
+void sched2(void);
+void wrap_sched2(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -154,6 +162,7 @@ void            initlock(struct spinlock*, char*);
 void            release(struct spinlock*);
 void            pushcli(void);
 void            popcli(void);
+void            wrap_acquire(struct spinlock*, int line);
 
 // sleeplock.c
 void            acquiresleep(struct sleeplock*);

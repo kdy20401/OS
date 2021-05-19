@@ -3,16 +3,18 @@
 #include "param.h"
 #include "memlayout.h"
 #include "mmu.h"
+#include "spinlock.h"
 #include "proc.h"
 #include "x86.h"
 #include "traps.h"
-#include "spinlock.h"
+// #include "thread.h"
 
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
+extern struct mlfq mlfq;
 
 void
 tvinit(void)
@@ -39,7 +41,7 @@ trap(struct trapframe *tf)
   if(tf->trapno == T_SYSCALL){
     if(myproc()->killed)
       exit();
-    myproc()->tf = tf;
+    myproc()->curthd->tf = tf;
     syscall();
     if(myproc()->killed)
       exit();
@@ -81,6 +83,7 @@ trap(struct trapframe *tf)
   //PAGEBREAK: 13
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){
+
       // In kernel, it must be our mistake.
       cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
               tf->trapno, cpuid(), tf->eip, rcr2());
@@ -102,11 +105,55 @@ trap(struct trapframe *tf)
 
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
-  if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER)
-    yield();
+  if(myproc() && myproc()->state == RUNNING && tf->trapno == T_IRQ0+IRQ_TIMER) {
+      // yield();
+      
+      struct proc *curproc, *p;
+      struct queue *q;
+      int mlfqlev;
+      int head, tail;
+
+      curproc = myproc();
+      mlfqlev = curproc->mlfqlev;
+
+      // just for situation only on mlfq scheduling
+      q = &mlfq.queues[mlfqlev];
+      head = q->head;
+      tail = q->tail;
+
+      while(head != tail) {
+          p = q->arr[head].p;
+
+          if(p == curproc) {
+              break;
+          }
+
+          head++;
+          head = head % NPROC;
+      }
+      p = q->arr[head].p;
+      
+      // context switch between processes
+      if((q->tick + 1) % q->timeslice == 0) {
+          // cprintf("yield()\n");
+          yield();
+      // context switch between threads
+      }else{
+          // cprintf("yeidl2()\n");
+          q->arr[head].tick++;
+          q->tick++;
+          mlfq.tick++;
+          // cprintf("yield2 starts\n");
+          yield2();
+          // if(myproc()->thdtable.threads[0].state == SLEEPING) {
+          //   cprintf("sleep success\n");
+          // }
+      }
+  }
 
   // Check if the process has been killed since we yielded
-  if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
-    exit();
+  if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER) {
+      cprintf("exit\n");
+      exit();
+  }
 }

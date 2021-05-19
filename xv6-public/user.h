@@ -1,5 +1,6 @@
 struct stat;
 struct rtcdate;
+struct thread_t;
 
 // system calls
 int fork(void);
@@ -27,7 +28,10 @@ int myfunction(char*);
 int getppid(void);
 void yield(void);
 int getlev(void);
-int set_cpu_share(int share);
+int set_cpu_share(int);
+int thread_create(int*, void * (*start_routine)(void *), void*);
+void thread_exit(void*);
+int thread_join(int, void**);
 
 // ulib.c
 int stat(const char*, struct stat*);
