@@ -57,10 +57,8 @@ struct thdtable{
 struct proc {
   uint sz;                     // Size of process memory (bytes)
   pde_t* pgdir;                // Page table
-  enum procstate state;        // Process state
   int pid;                     // Process ID
   struct proc *parent;         // Parent process
-  void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
@@ -68,11 +66,13 @@ struct proc {
   int mlfqlev;                 // level of queue in mlfq
   int share;
   double stride;
+  struct thread *masterthd;    // master thread of process
   struct thread *curthd;       // current execution flow
   struct thdtable thdtable;    // thread table
-  int thdnum;                  // number of thread
 
   /* fields moved to thread struct */
+  // enum procstate state;        // Process state
+  // void *chan;                  // If non-zero, sleeping on chan
   // struct context *context;     // swtch() here to run process
   // struct trapframe *tf;        // Trap frame for current syscall
   // char *kstack;                // Bottom of kernel stack for this process

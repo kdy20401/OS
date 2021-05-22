@@ -2,8 +2,8 @@
 #include "stat.h"
 #include "user.h"
 
-#define NUM_THREAD 10 
-#define NTEST 1
+#define NUM_THREAD 5
+#define NTEST 3
 
 // Show race condition
 int racingtest(void);
@@ -21,15 +21,15 @@ int gpipe[2];
 
 int (*testfunc[NTEST])(void) = {
   basictest,
-  // racingtest,
-  // jointest1,
+  racingtest,
+  jointest1,
   // jointest2,
   // stresstest,
 };
 char *testname[NTEST] = {
   "basictest",
-  // "racingtest",
-  // "jointest1",
+  "racingtest",
+  "jointest1",
   // "jointest2",
   // "stresstest",
 };

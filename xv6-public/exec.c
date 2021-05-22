@@ -11,6 +11,7 @@
 int
 exec(char *path, char **argv)
 {
+  // cprintf("exec\n");
   char *s, *last;
   int i, off;
   uint argc, sz, sp, ustack[3+MAXARG+1];
@@ -98,7 +99,6 @@ exec(char *path, char **argv)
   curproc->curthd->tf->esp = sp;
   switchuvm(curproc);
   freevm(oldpgdir);
-
   return 0;
 
  bad:

@@ -25,7 +25,7 @@ wrap_acquire(struct spinlock *lk, int line)
   pushcli(); // disable interrupts to avoid deadlock.
   if(holding(lk)) {
       // cprintf("tid of thread holding lock : %d\n", myproc()->curthd->tid);
-      // cprintf("deadlock at spinlock %d. curthd->tid = %d\n", lk, myproc()->curthd->tid);
+      cprintf("deadlock at spinlock %d. curthd->tid = %d\n", lk, myproc()->curthd->tid);
       cprintf("line : %d, tid : %d\n", line, myproc()->curthd->tid);
       panic("acquire");
   }
@@ -54,7 +54,7 @@ acquire(struct spinlock *lk)
   pushcli(); // disable interrupts to avoid deadlock.
   if(holding(lk)) {
       // cprintf("tid of thread holding lock : %d\n", myproc()->curthd->tid);
-      cprintf("deadlock at spinlock %d. curthd->tid = %d\n", lk, myproc()->curthd->tid);
+      // cprintf("deadlock at spinlock %d. curthd->tid = %d\n", lk, myproc()->curthd->tid);
       panic("acquire");
   }
 

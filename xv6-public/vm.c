@@ -153,6 +153,34 @@ switchkvm(void)
   lcr3(V2P(kpgdir));   // switch to the kernel page table
 }
 
+void
+wrap_switchuvm(struct proc *p, int line)
+{
+  if(p == 0)
+    panic("switchuvm: no process");
+  if(p->curthd->kstack == 0) {
+    cprintf("line : %d ", line);
+    panic("switchuvm: no kstack");
+  }
+
+  if(p->pgdir == 0)
+    panic("switchuvm: no pgdir");
+
+  pushcli();
+  mycpu()->gdt[SEG_TSS] = SEG16(STS_T32A, &mycpu()->ts,
+                                sizeof(mycpu()->ts)-1, 0);
+  mycpu()->gdt[SEG_TSS].s = 0;
+  mycpu()->ts.ss0 = SEG_KDATA << 3;
+  mycpu()->ts.esp0 = (uint)p->curthd->kstack + KSTACKSIZE;
+  // setting IOPL=0 in eflags *and* iomb beyond the tss segment limit
+  // forbids I/O instructions (e.g., inb and outb) from user space
+  mycpu()->ts.iomb = (ushort) 0xFFFF;
+  ltr(SEG_TSS << 3);
+  lcr3(V2P(p->pgdir));  // switch to process's address space
+  popcli();
+}
+
+
 // Switch TSS and h/w page table to correspond to process p.
 void
 switchuvm(struct proc *p)

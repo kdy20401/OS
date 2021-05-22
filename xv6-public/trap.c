@@ -105,49 +105,34 @@ trap(struct trapframe *tf)
 
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
-  if(myproc() && myproc()->state == RUNNING && tf->trapno == T_IRQ0+IRQ_TIMER) {
-      // yield();
-      
-      struct proc *curproc, *p;
+  if(myproc() && myproc()->curthd->state == RUNNING && tf->trapno == T_IRQ0+IRQ_TIMER) {
+     
+      struct proc *curproc;
       struct queue *q;
-      int mlfqlev;
       int head, tail;
 
-      curproc = myproc();
-      mlfqlev = curproc->mlfqlev;
-
       // just for situation only on mlfq scheduling
-      q = &mlfq.queues[mlfqlev];
+      curproc = myproc();
+      q = &mlfq.queues[curproc->mlfqlev];
       head = q->head;
       tail = q->tail;
 
       while(head != tail) {
-          p = q->arr[head].p;
-
-          if(p == curproc) {
+          if(q->arr[head].p == curproc)
               break;
-          }
 
-          head++;
-          head = head % NPROC;
+          head = (head + 1) % NPROC;
       }
-      p = q->arr[head].p;
       
       // context switch between processes
       if((q->tick + 1) % q->timeslice == 0) {
-          // cprintf("yield()\n");
           yield();
       // context switch between threads
       }else{
-          // cprintf("yeidl2()\n");
           q->arr[head].tick++;
           q->tick++;
           mlfq.tick++;
-          // cprintf("yield2 starts\n");
           yield2();
-          // if(myproc()->thdtable.threads[0].state == SLEEPING) {
-          //   cprintf("sleep success\n");
-          // }
       }
   }
 
