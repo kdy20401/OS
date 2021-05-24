@@ -151,9 +151,7 @@ int thread_join(int thread, void **retval);
 void sleep2(void *chan, struct spinlock *lk);
 void yield2(void);
 void sched2(void);
-void wrap_sched2(void);
 void wrap_switchuvm(struct proc *p, int line);
-struct thread* mythd(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

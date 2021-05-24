@@ -5,7 +5,6 @@
 #include "mmu.h"
 #include "x86.h"
 #include "spinlock.h"
-// #include "thread.h"
 #include "proc.h"
 
 struct {
@@ -58,7 +57,14 @@ selectmlfqp(void)
                 dequeue(q);
             }
             // states of process who should stay in mlfq 
-            else if(p->curthd->state == SLEEPING || p->curthd->state == EMBRYO) {
+            else if(p->curthd->state == EMBRYO) {
+                enqueue(dequeue(q), level, q->arr[q->head].tick);
+            }
+            else if(p->curthd->state == SLEEPING) {
+                if(p->thdtable.nexttid > 0) {
+                    // cprintf("p->curthd->tid : %d\n", p->curthd->tid);
+                    return p;
+                }
                 enqueue(dequeue(q), level, q->arr[q->head].tick);
             }
             head = (head + 1) % NPROC;
@@ -71,8 +77,13 @@ selectmlfqp(void)
 
         if(p->mlfqlev == STRIDELEV || p->curthd->state == ZOMBIE || p->curthd->state == UNUSED) {
             dequeue(q);
-        }else if(p->curthd->state == SLEEPING || p->curthd->state == EMBRYO) {
+        }else if(p->curthd->state == EMBRYO) {
             enqueue(dequeue(q), level, q->arr[q->head].tick);
+        }else if(p->curthd->state == SLEEPING) {
+            if(p->thdtable.nexttid > 0) {
+                // cprintf("p->curthd->tid : %d\n", p->curthd->tid);
+                return p;
+            }
         }
     }
 
@@ -392,11 +403,6 @@ mycpu(void)
   panic("unknown apicid\n");
 }
 
-struct thread*
-mythd(void)
-{
-    return myproc()->curthd;
-}
 
 // Disable interrupts so that we are not rescheduled
 // while reading proc from the cpu structure
@@ -762,7 +768,6 @@ yield(void)
 void
 sched2(void)
 {
-    // cprintf("sched2\n");
     struct thdtable *thdtable;
     struct thread *curthd, *nextthd;
     struct proc *curproc;
@@ -785,10 +790,14 @@ sched2(void)
         if(!holding(&ptable.lock))
             acquire(&ptable.lock);
         
-        for(t = thdtable->threads; t < &thdtable->threads[NTHREAD]; t++) {
-            if(t->state == RUNNABLE && t != curthd){
+        // round robin
+        for(t = curthd; t < &thdtable->threads[NTHREAD]; t++) {
+            if(t->state == RUNNABLE && t != curthd)
                 goto found;
-            }
+        }
+        for(t = thdtable->threads; t != curthd; t++) {
+            if(t->state == RUNNABLE) 
+                goto found;
         }
      
         // only current thread is runnable.
@@ -797,6 +806,7 @@ sched2(void)
             curthd->state = RUNNING;
             return;
         }
+
         // cprintf("curthd : %d, no runnable thread\n", curthd->tid);
         //  for(t = thdtable->threads; t < &thdtable->threads[NTHREAD]; t++) {
         //     cprintf("%d ", t->state);
@@ -1052,70 +1062,6 @@ wakeup2(void *chan)
             t->state = RUNNABLE;
         }
     }
-}
-
-void
-wrap_sched2(void)
-{
-    struct thdtable *thdtable;
-    struct thread *curthd, *nextthd;
-    struct proc *curproc;
-    int i, j;
-    int intena;
-
-    curproc = myproc();
-    thdtable = &curproc->thdtable;
-    curthd = curproc->curthd;
-
-    if(!holding(&ptable.lock))
-        panic("sched2 thdtable.lock");
-    if(mycpu()->ncli != 1)
-        panic("sched2 locks");
-    if(curthd->state == RUNNING)  // main thread ??
-        panic("sched2 running");
-    if(readeflags()&FL_IF)
-        panic("sched2 interruptible");
-   
-    i = thdtable->index;
-    j = (i + 1) % NTHREAD;
-
-    // find next runnable thread
-    while(j != i) {
-        nextthd = &thdtable->threads[j];
-        if(nextthd->state == RUNNABLE) {
-            break;
-        }
-
-        j++;
-        j = j % NTHREAD;
-    }
-    
-    // if only the current thread is ready, just change state and return
-    // no context switch between threads is needed
-    if(j == i) {
-        curthd->state = RUNNING;
-        return;
-    }
-
-    // switch TSS. right??
-    pushcli();
-
-    mycpu()->gdt[SEG_TSS] = SEG16(STS_T32A, &mycpu()->ts, sizeof(mycpu()->ts)-1, 0);
-    mycpu()->gdt[SEG_TSS].s = 0;
-    mycpu()->ts.ss0 = SEG_KDATA << 3;
-    mycpu()->ts.esp0 = (uint)nextthd->kstack + KSTACKSIZE;
-    mycpu()->ts.iomb = (ushort) 0xFFFF;
-    ltr(SEG_TSS << 3);
-
-    popcli();
-   
-    intena = mycpu()->intena;
-    thdtable->index = j;
-    curproc->curthd = nextthd;
-    curproc->curthd->state = RUNNING;
-    // cprintf("swtch\n");
-    swtch(&curthd->context, nextthd->context);
-    mycpu()->intena = intena;
 }
 
 // before sleep2 call, ptable.lock is already held

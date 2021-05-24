@@ -32,13 +32,13 @@ struct context {
   uint eip;
 };
 
-enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum thdstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 /* light weight process(thread) */
 struct thread{
   int tid;                     // thread id designated by thread_create 1st argument
   struct proc *parent;         // process who spawns the thread 
-  enum procstate state;         // thread state
+  enum thdstate state;         // thread state
   struct context *context;     // swtch() here to run process
   char *kstack;                // Bottom of kernel stack for this thread
   struct trapframe *tf;        // Trap frame for current syscall
@@ -48,9 +48,8 @@ struct thread{
 
 struct thdtable{
   struct spinlock lock;
-  struct thread threads[NTHREAD];
-  int index;                      // index of thread in execution
   int nexttid;     
+  struct thread threads[NTHREAD];
 };
 
 // Per-process state
