@@ -26,6 +26,33 @@ struct strideq strideq;
 int mlfqshare = 20;
 int strideqshare = 80;
 
+uint
+popts(struct thdstack *stack)
+{
+    if(stack->top == -1) {
+        cprintf("popts err\n");
+        return -1;
+    }
+
+    return stack->arr[stack->top--];
+}
+
+int
+isempty(struct thdstack *stack)
+{
+    return stack->top == -1;
+}
+
+void
+pushts(struct thdstack *stack, uint addr)
+{
+    if(stack->top == NTHREAD - 1) {
+        panic("thread stack overflows");
+    }
+
+    stack->arr[++stack->top] = addr;
+}
+
 // select process from mlfq
 // if runnable process is in the mlfq, return that process.
 // if there is no runnable process, return null.
@@ -373,6 +400,7 @@ pinit(void)
   for(struct proc *p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
       p->masterthd = &(p->thdtable.threads[0]);
       p->curthd = p->masterthd;
+      p->stack.top = -1;
   }
   initmlfq();
 }
@@ -481,7 +509,7 @@ userinit(void)
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
   p = allocproc();
-
+  
   initproc = p;
   if((p->pgdir = setupkvm()) == 0)
     panic("userinit: out of memory?");
@@ -628,6 +656,8 @@ exit(void)
   curproc->mlfqlev = -1;
   curproc->masterthd->state = ZOMBIE; // change curthd to masterthd right??
   curproc->curthd = curproc->masterthd;
+  curproc->stack.top = -1;
+
   sched();
   panic("zombie exit");
 }
@@ -1108,12 +1138,13 @@ allocthd(void)
         if(t->state == UNUSED)
             goto found;
     }
+   
+    cprintf("cannot allocate thread more\n");
     
-    cprintf("thread not found\n");
-    for(t = thdtable->threads; t < &thdtable->threads[NTHREAD]; t++) {
-        cprintf("%d ", t->state);
-    }
-    cprintf("\n");
+    // for(t = thdtable->threads; t < &thdtable->threads[NTHREAD]; t++) {
+    //     cprintf("%d ", t->state);
+    // }
+    // cprintf("\n");
 
     release(&ptable.lock);
     return 0;
@@ -1164,6 +1195,7 @@ thread_create(thread_t *thread, void * (*start_routine)(void *), void *arg)
     struct proc *curproc;
     struct thread *t;
     uint sz, sp, ustack[2];
+    int empty;
 
     curproc = myproc();
 
@@ -1179,15 +1211,25 @@ thread_create(thread_t *thread, void * (*start_routine)(void *), void *arg)
     // copy trapframe
     *t->tf = *curproc->curthd->tf;
     
+    // check whether reusable memory address for thread's user stack exists
+    acquire(&ptable.lock);
+    empty = isempty(&curproc->stack);    
+    release(&ptable.lock);
+
+    if(empty) {
+        sz = curproc->sz;
+        sz = PGROUNDUP(sz);
+    }else {
+        sz = popts(&curproc->stack);
+    }
+
     // allocate user stack with guard page
-    sz = curproc->sz;
-    sz = PGROUNDUP(sz);
     if((sz = allocuvm(curproc->pgdir, sz, sz + 2*PGSIZE)) == 0) { 
         cprintf("err : allocuvm in thread_create");
         goto bad;
     }
     clearpteu(curproc->pgdir, (char*)(sz - 2*PGSIZE));
-
+    
     sp = sz;
     sp -= 2 * 4;
 
@@ -1199,7 +1241,10 @@ thread_create(thread_t *thread, void * (*start_routine)(void *), void *arg)
     }
     
     // increase memory size
-    curproc->sz = sz;
+    if(empty) {
+        curproc->sz = sz;
+    }
+    t->sz = sz;
 
     // change execution flow by changing pc and stack pointer
     t->tf->eip = (uint)start_routine;
@@ -1259,7 +1304,7 @@ thread_join(thread_t thread, void **retval)
     struct thdtable *thdtable;
     struct thread *t;
     int havekids;
-    // int tmp;
+    uint sz;
 
     curproc = myproc();
     thdtable = &curproc->thdtable;
@@ -1276,16 +1321,21 @@ thread_join(thread_t thread, void **retval)
 
             // found thread
             if(t->state == ZOMBIE) {
-                // tmp = t->tid;
-                // userstack?
+                // int tmp = t->tid;
                 kfree(t->kstack);
                 t->kstack = 0;
                 t->tid = 0;
                 t->parent = 0;
                 t->state = UNUSED;
                 *retval = t->retval;
-                release(&ptable.lock);
+
+                // deallocate user stack, flush tlb and save reusable address to stack
+                sz = deallocuvm(curproc->pgdir, t->sz, t->sz - 2*PGSIZE);
+                lcr3(V2P(curproc->pgdir));
+                pushts(&curproc->stack, sz);
+
                 // cprintf("thread_join fin. tid = %d\n", tmp);
+                release(&ptable.lock);
                 return 0;
             }
             // if thread already terminates, return
@@ -1295,9 +1345,7 @@ thread_join(thread_t thread, void **retval)
             }
             // wait until target thread calls thread_exit
             else {
-                // cprintf("thread %d going to sleep,,\n", curproc->curthd->tid);
-                // sleep2(curproc->curthd, &ptable.lock);
-                // cprintf("thread %d wakes up!\n", curproc->curthd->tid);
+                break;
             }
         }
 
@@ -1306,9 +1354,6 @@ thread_join(thread_t thread, void **retval)
             return -1;
         }
         
-        // if(havekids) {
-        //     cprintf("thread_routine not fin\n");
-        // }
         // cprintf("thread %d going to sleep,,\n", curproc->curthd->tid);
         sleep2(curproc->curthd, &ptable.lock);
         // cprintf("thread %d wakes up!\n", curproc->curthd->tid);

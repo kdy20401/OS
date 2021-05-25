@@ -13,6 +13,7 @@ struct queue;
 struct node;
 struct strideqnode;
 struct thread;
+struct thdstack;
 
 // bio.c
 void            binit(void);
@@ -152,6 +153,9 @@ void sleep2(void *chan, struct spinlock *lk);
 void yield2(void);
 void sched2(void);
 void wrap_switchuvm(struct proc *p, int line);
+uint popts(struct thdstack *stack);
+int isempty(struct thdstack *stack);
+void pushts(struct thdstack *stack, uint addr);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

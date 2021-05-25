@@ -34,6 +34,11 @@ struct context {
 
 enum thdstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+struct thdstack{
+    int top;
+    uint arr[NTHREAD];
+};
+
 /* light weight process(thread) */
 struct thread{
   int tid;                     // thread id designated by thread_create 1st argument
@@ -42,8 +47,9 @@ struct thread{
   struct context *context;     // swtch() here to run process
   char *kstack;                // Bottom of kernel stack for this thread
   struct trapframe *tf;        // Trap frame for current syscall
-  void *chan;
-  void *retval;
+  void *chan;                 
+  void *retval;                // return value passed to thread_join() argument
+  uint sz;                     // address of user stack bottom
 };
 
 struct thdtable{
@@ -65,16 +71,10 @@ struct proc {
   int mlfqlev;                 // level of queue in mlfq
   int share;
   double stride;
-  struct thread *masterthd;    // master thread of process
-  struct thread *curthd;       // current execution flow
+  struct thread *masterthd;    // master thread of process (t0)
+  struct thread *curthd;       // current execution flow   (t1, t2,,,)
   struct thdtable thdtable;    // thread table
-
-  /* fields moved to thread struct */
-  // enum procstate state;        // Process state
-  // void *chan;                  // If non-zero, sleeping on chan
-  // struct context *context;     // swtch() here to run process
-  // struct trapframe *tf;        // Trap frame for current syscall
-  // char *kstack;                // Bottom of kernel stack for this process
+  struct thdstack stack;       // save address of reusable user stack by thread
 };
 
 // Process memory is laid out contiguously, low addresses first:
