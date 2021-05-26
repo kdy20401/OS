@@ -545,7 +545,8 @@ growproc(int n)
 {
   uint sz;
   struct proc *curproc = myproc();
-
+  
+  acquire(&ptable.lock);
   sz = curproc->sz;
   if(n > 0){
     if((sz = allocuvm(curproc->pgdir, sz, sz + n)) == 0)
@@ -556,6 +557,7 @@ growproc(int n)
   }
   curproc->sz = sz;
   switchuvm(curproc);
+  release(&ptable.lock);
   return 0;
 }
 
@@ -938,10 +940,17 @@ static void
 wakeup1(void *chan)
 {
   struct proc *p;
-
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->masterthd->state == SLEEPING && p->masterthd->chan == chan)
-      p->masterthd->state = RUNNABLE;
+  struct thread *t;
+  int i;
+    
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    for(i = 0; i <= p->thdtable.nexttid; i++) {
+      t = &p->thdtable.threads[i];
+      if(t->state == SLEEPING && t->chan == chan) {
+          t->state = RUNNABLE;
+      }
+    }
+  }
 }
 
 // Wake up all processes sleeping on chan.
