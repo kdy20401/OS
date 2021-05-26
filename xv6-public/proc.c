@@ -720,7 +720,6 @@ wait(void)
 void
 scheduler(void)
 {
-    // cprintf("scheduler\n");
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
@@ -730,7 +729,7 @@ scheduler(void)
     sti();
 
     // Loop over process table looking for process to run.
-    wrap_acquire(&ptable.lock, 695);
+    acquire(&ptable.lock);
     while(1) {
 
       // select runnable process from mlfq or stride queue
@@ -1330,6 +1329,7 @@ thread_join(thread_t thread, void **retval)
                 *retval = t->retval;
 
                 // deallocate user stack, flush tlb and save reusable address to stack
+                // TODO : lcr3 function call can leads to performance degradation
                 sz = deallocuvm(curproc->pgdir, t->sz, t->sz - 2*PGSIZE);
                 lcr3(V2P(curproc->pgdir));
                 pushts(&curproc->stack, sz);

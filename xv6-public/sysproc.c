@@ -124,39 +124,40 @@ sys_set_cpu_share(void)
     return set_cpu_share(p);
 }
 
+// wrapper function for
+// thread_create(thread_t *thread, void * (*start_routine)(void *), void *arg)
 int
 sys_thread_create(void)
 {
     thread_t *thread;
     void * (*start_routine)(void *);
-    int arg;
+    void *arg;
     
     if(argptr(0, (void *)&thread, sizeof(thread_t*)) < 0)
         return -1;
     if(argptr(1, (void *)&start_routine, sizeof(start_routine)) < 0)
         return -1;
-    if(argint(2, (void *)&arg) < 0) // sizeof(int) right?
+    if(argptr(2, (void *)&arg, sizeof(void*)) < 0)
         return -1;
-  
-    // for debugging
-    // cprintf("thread : %d, arg : %d. thread_create()\n", thread, arg);
-    // cprintf("start_routine = %d\n", start_routine);
-    return thread_create(thread, start_routine, (void*)arg);
+
+    return thread_create(thread, start_routine, arg);
 };
 
+// wrapper function for
+// thread_exit(void *retval)
 void
 sys_thread_exit(void)
 {
-    int retval;
+    void *retval;
     
-    if(argint(0, (void *)&retval) < 0)
+    if(argptr(0, (void *)&retval, sizeof(void*) < 0))
         return;
     
-    // for debugging
-    // cprintf("retval = %d, thread_exit()\n", retval);
-    return thread_exit((void*)retval);
+    return thread_exit(retval);
 }
 
+// wrapper function for
+// thread_join(thread_t thread, void **retval)
 int
 sys_thread_join(void)
 {
@@ -165,10 +166,8 @@ sys_thread_join(void)
 
     if(argint(0, &thread) < 0)
         return -1;
-    if(argptr(1, (void *)&retval, sizeof(void*) < 0)) // ??
+    if(argptr(1, (void *)&retval, sizeof(void*) < 0))
         return -1;
     
-    // for debugging
-    // cprintf("thread = %d, &retval add = %d\n", thread, retval);
     return thread_join(thread, retval);
 }

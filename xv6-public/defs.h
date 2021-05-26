@@ -152,7 +152,6 @@ int thread_join(int thread, void **retval);
 void sleep2(void *chan, struct spinlock *lk);
 void yield2(void);
 void sched2(void);
-void wrap_switchuvm(struct proc *p, int line);
 uint popts(struct thdstack *stack);
 int isempty(struct thdstack *stack);
 void pushts(struct thdstack *stack, uint addr);
@@ -168,7 +167,6 @@ void            initlock(struct spinlock*, char*);
 void            release(struct spinlock*);
 void            pushcli(void);
 void            popcli(void);
-void            wrap_acquire(struct spinlock*, int line);
 
 // sleeplock.c
 void            acquiresleep(struct sleeplock*);

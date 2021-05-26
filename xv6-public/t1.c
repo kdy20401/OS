@@ -141,18 +141,13 @@ basicthreadmain(void *arg)
   return 0;
 }
 
+
 int
 basictest(void)
 {
   thread_t threads[NUM_THREAD];
   int i, ret;
   void *retval;
-  
-  // for debugging
-  // for (i = 0; i < NUM_THREAD; i++) {
-  //     printf(1, "threads[%d] = %d\n", i, &threads[i]);
-  // }
-  // printf(1, "basicthreadmain = %d\n", basicthreadmain);
 
   for (i = 0; i < NUM_THREAD; i++){
     if (thread_create(&threads[i], basicthreadmain, (void*)i) != 0){
