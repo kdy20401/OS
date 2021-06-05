@@ -39,6 +39,7 @@ int             fileread(struct file*, char*, int n);
 int             filestat(struct file*, struct stat*);
 int             filewrite(struct file*, char*, int n);
 
+
 // fs.c
 void            readsb(int dev, struct superblock *sb);
 int             dirlink(struct inode*, char*, uint);
@@ -57,6 +58,7 @@ struct inode*   nameiparent(char*, char*);
 int             readi(struct inode*, char*, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, char*, uint, uint);
+int             writei2(struct inode*, char*, uint, uint);
 
 // ide.c
 void            ideinit(void);
@@ -91,6 +93,10 @@ void            initlog(int dev);
 void            log_write(struct buf*);
 void            begin_op();
 void            end_op();
+void            log_write2(struct buf*);
+void            end_op2();
+int             get_log_num();
+int             sync();
 
 // mp.c
 extern int      ismp;

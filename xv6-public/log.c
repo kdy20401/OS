@@ -173,6 +173,7 @@ end_op(void)
   }
 }
 
+
 // Copy modified blocks from cache to log.
 static void
 write_log(void)
@@ -232,3 +233,95 @@ log_write(struct buf *b)
   release(&log.lock);
 }
 
+// for write system call
+void
+log_write2(struct buf *b)
+{
+  int i;
+
+  // if log buffer is full, flush log and buffer
+  if (log.lh.n >= LOGSIZE || log.lh.n >= log.size - 1) {
+    sync();
+  }
+
+  if (log.outstanding < 1)
+    panic("log_write outside of trans");
+
+  acquire(&log.lock);
+  for (i = 0; i < log.lh.n; i++) {
+    if (log.lh.block[i] == b->blockno)   // log absorbtion
+      break;
+  }
+  log.lh.block[i] = b->blockno;
+  if (i == log.lh.n)
+    log.lh.n++;
+  b->flags |= B_DIRTY; // prevent eviction
+  release(&log.lock);
+}
+
+void
+end_op2(void)
+{
+  int do_commit = 0;
+
+  acquire(&log.lock);
+  log.outstanding -= 1;
+  if(log.committing)
+    panic("log.committing");
+  if(log.outstanding == 0){
+    do_commit = 1;
+    log.committing = 1;
+  } else {
+    // begin_op() may be waiting for log space,
+    // and decrementing log.outstanding has decreased
+    // the amount of reserved space.
+    wakeup(&log);
+  }
+  release(&log.lock);
+
+  if(do_commit){
+    // only write log to disk.
+    // do not write buffer to disk
+    if(log.lh.n > 0) {
+      write_log();
+      write_head();
+    }
+    acquire(&log.lock);
+    log.committing = 0;
+    wakeup(&log);
+    release(&log.lock);
+  }
+}
+
+int
+sync(void)
+{
+  acquire(&log.lock);
+  while(1){
+    if(log.committing){
+      sleep(&log, &log.lock);
+    } else if(log.outstanding > 0){
+      // wait for other FS system calls terminate
+      sleep(&log, &log.lock);
+    } else {
+      break;
+    }
+  }
+    
+  log.committing = 1;
+  release(&log.lock);
+
+  commit();
+  acquire(&log.lock);
+  log.committing = 0;
+  wakeup(&log);
+  release(&log.lock);
+
+  return 0;
+}
+
+int
+get_log_num(void)
+{
+    return log.lh.n;
+}

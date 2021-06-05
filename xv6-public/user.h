@@ -32,6 +32,8 @@ int set_cpu_share(int);
 int thread_create(int*, void * (*start_routine)(void *), void*);
 void thread_exit(void*);
 int thread_join(int, void**);
+int sync(void);
+int get_log_num(void);
 
 // ulib.c
 int stat(const char*, struct stat*);
