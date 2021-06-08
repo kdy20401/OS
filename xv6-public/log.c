@@ -235,31 +235,6 @@ log_write(struct buf *b)
 
 // for write system call
 void
-log_write2(struct buf *b)
-{
-  int i;
-
-  // if log buffer is full, flush log and buffer
-  if (log.lh.n >= LOGSIZE || log.lh.n >= log.size - 1) {
-    sync();
-  }
-
-  if (log.outstanding < 1)
-    panic("log_write outside of trans");
-
-  acquire(&log.lock);
-  for (i = 0; i < log.lh.n; i++) {
-    if (log.lh.block[i] == b->blockno)   // log absorbtion
-      break;
-  }
-  log.lh.block[i] = b->blockno;
-  if (i == log.lh.n)
-    log.lh.n++;
-  b->flags |= B_DIRTY; // prevent eviction
-  release(&log.lock);
-}
-
-void
 end_op2(void)
 {
   int do_commit = 0;
@@ -281,11 +256,19 @@ end_op2(void)
 
   if(do_commit){
     // only write log to disk.
-    // do not write buffer to disk
+    // do not write block data in buffer to disk
     if(log.lh.n > 0) {
       write_log();
       write_head();
     }
+    
+    // if log buffer is full, flush log to data block section on disk
+    if(log.lh.n == LOGSIZE - 1) {
+       install_trans();
+       log.lh.n = 0;
+       write_head();
+    }
+
     acquire(&log.lock);
     log.committing = 0;
     wakeup(&log);
@@ -307,11 +290,16 @@ sync(void)
       break;
     }
   }
-    
+  
+  // prepare for flushing
   log.committing = 1;
   release(&log.lock);
 
-  commit();
+  // flush data to disk
+  install_trans(); // write log to block data on disk
+  log.lh.n = 0;  
+  write_head();    // erase transaction from the log
+
   acquire(&log.lock);
   log.committing = 0;
   wakeup(&log);
