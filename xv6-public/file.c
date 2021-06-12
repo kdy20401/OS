@@ -112,6 +112,24 @@ fileread(struct file *f, char *addr, int n)
   panic("fileread");
 }
 
+int
+filepread(struct file *f, char *addr, int n, int off)
+{
+  int r;
+
+  if(f->readable == 0)
+    return -1;
+  if(f->type == FD_PIPE)
+    return piperead(f->pipe, addr, n);
+  if(f->type == FD_INODE){
+    ilock(f->ip);
+    r = readi(f->ip, addr, off, n);
+    iunlock(f->ip);
+    return r;
+  }
+  panic("fileread");
+}
+
 //PAGEBREAK!
 // Write to file f.
 int
@@ -196,21 +214,4 @@ filepwrite(struct file *f, char *addr, int n, int off)
   panic("filewrite");
 }
 
-int
-filepread(struct file *f, char *addr, int n, int off)
-{
-  int r;
-
-  if(f->readable == 0)
-    return -1;
-  if(f->type == FD_PIPE)
-    return piperead(f->pipe, addr, n);
-  if(f->type == FD_INODE){
-    ilock(f->ip);
-    r = readi(f->ip, addr, off, n);
-    iunlock(f->ip);
-    return r;
-  }
-  panic("fileread");
-}
 
