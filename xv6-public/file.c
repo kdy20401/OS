@@ -160,7 +160,7 @@ filewrite(struct file *f, char *addr, int n)
       if ((r = writei(f->ip, addr + i, f->off, n1)) > 0)
         f->off += r;
       iunlock(f->ip);
-      end_op2(); // modified here!
+      end_op(); // modified here!
 
       if(r < 0)
         break;
@@ -201,7 +201,7 @@ filepwrite(struct file *f, char *addr, int n, int off)
       if ((r = writei(f->ip, addr + i, off, n1)) > 0)
         off += r;
       iunlock(f->ip);
-      end_op2(); // modified here!
+      end_op(); // modified here!
 
       if(r < 0)
         break;

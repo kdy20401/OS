@@ -393,7 +393,7 @@ bmap(struct inode *ip, uint bn)
     a = (uint*)bp->data;
     if((addr = a[bn]) == 0){
       a[bn] = addr = balloc(ip->dev);
-      log_write(bp);
+      wrap_log_write(bp, 396);
     }
     brelse(bp);
     return addr;
@@ -409,15 +409,16 @@ bmap(struct inode *ip, uint bn)
 
     if((blockno = a[bn/NINDIRECT]) == 0){
         a[bn/NINDIRECT] = blockno = balloc(ip->dev);
-        log_write(bp);
+        wrap_log_write(bp, 412);
     }
+    brelse(bp);
+
     bp = bread(ip->dev, blockno);
     a = (uint*)bp->data;
     bn = bn % NINDIRECT;
-
     if((addr = a[bn]) == 0) {
         a[bn] = addr = balloc(ip->dev);
-        log_write(bp);
+        wrap_log_write(bp, 421);
     }
     brelse(bp);
     return addr;
@@ -432,24 +433,26 @@ bmap(struct inode *ip, uint bn)
     a = (uint*)bp->data;
     
     if((blockno = a[bn/NDOUBLEINDIRECT]) == 0){
-        a[bn/NDOUBLEINDIRECT] = blockno =  balloc(ip->dev);
-        log_write(bp);
+        a[bn/NDOUBLEINDIRECT] = blockno = balloc(ip->dev);
+        wrap_log_write(bp, 437);
     }
+    brelse(bp);
+
     bp = bread(ip->dev, blockno);
     a = (uint*)bp->data;
     bn = bn % NDOUBLEINDIRECT;
-
-    if((blockno = a[bn/NINDIRECT] == 0)) {
+    if((blockno = a[bn/NINDIRECT]) == 0) {
         a[bn/NINDIRECT] = blockno = balloc(ip->dev);
-        log_write(bp);
+        wrap_log_write(bp, 446);
     }
+    brelse(bp);
+
     bp = bread(ip->dev, blockno);
     a = (uint*)bp->data;
     bn = bn % NINDIRECT;
-
     if((addr = a[bn]) == 0){
         a[bn] = addr = balloc(ip->dev);
-        log_write(bp);
+        wrap_log_write(bp, 455);
     }
     brelse(bp);
     return addr;
@@ -500,9 +503,8 @@ itrunc(struct inode *ip)
         bp2 = bread(ip->dev, a[i]);
         a2 = (uint*)bp2->data;
         for(j = 0; j < NINDIRECT; j++){
-          if(a2[j]){
+          if(a2[j])
             bfree(ip->dev, a2[j]);
-          }
         }
         brelse(bp2);
         bfree(ip->dev, a[i]);
@@ -615,11 +617,12 @@ writei(struct inode *ip, char *src, uint off, uint n)
     log_write(bp);
     brelse(bp);
   }
-
+  
   if(n > 0 && off > ip->size){
     ip->size = off;
     iupdate(ip);
   }
+
   return n;
 }
 
