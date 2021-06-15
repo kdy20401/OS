@@ -279,20 +279,9 @@ end_op2(void)
   release(&log.lock);
 
   if(do_commit){
-    // only write log to disk.
-    // do not write block data in buffer to disk
-    if(log.lh.n > 0) {
-      write_log();
-      write_head();
-    }
+    if(log.lh.n > LOGSIZE-10)
+      commit();
     
-    // if log buffer is full, flush log to data block section on disk
-    if(log.lh.n == LOGSIZE - 1) {
-       install_trans();
-       log.lh.n = 0;
-       write_head();
-    }
-
     acquire(&log.lock);
     log.committing = 0;
     wakeup(&log);
@@ -320,10 +309,7 @@ sync(void)
   release(&log.lock);
 
   // flush data to disk
-  install_trans(); // write log to block data on disk
-  log.lh.n = 0;  
-  write_head();    // erase transaction from the log
-
+  commit();
   acquire(&log.lock);
   log.committing = 0;
   wakeup(&log);

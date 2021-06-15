@@ -393,7 +393,7 @@ bmap(struct inode *ip, uint bn)
     a = (uint*)bp->data;
     if((addr = a[bn]) == 0){
       a[bn] = addr = balloc(ip->dev);
-      wrap_log_write(bp, 396);
+      log_write(bp);
     }
     brelse(bp);
     return addr;
@@ -409,7 +409,7 @@ bmap(struct inode *ip, uint bn)
 
     if((blockno = a[bn/NINDIRECT]) == 0){
         a[bn/NINDIRECT] = blockno = balloc(ip->dev);
-        wrap_log_write(bp, 412);
+        log_write(bp);
     }
     brelse(bp);
 
@@ -418,7 +418,7 @@ bmap(struct inode *ip, uint bn)
     bn = bn % NINDIRECT;
     if((addr = a[bn]) == 0) {
         a[bn] = addr = balloc(ip->dev);
-        wrap_log_write(bp, 421);
+        log_write(bp);
     }
     brelse(bp);
     return addr;
@@ -434,7 +434,7 @@ bmap(struct inode *ip, uint bn)
     
     if((blockno = a[bn/NDOUBLEINDIRECT]) == 0){
         a[bn/NDOUBLEINDIRECT] = blockno = balloc(ip->dev);
-        wrap_log_write(bp, 437);
+        log_write(bp);
     }
     brelse(bp);
 
@@ -443,7 +443,7 @@ bmap(struct inode *ip, uint bn)
     bn = bn % NDOUBLEINDIRECT;
     if((blockno = a[bn/NINDIRECT]) == 0) {
         a[bn/NINDIRECT] = blockno = balloc(ip->dev);
-        wrap_log_write(bp, 446);
+        log_write(bp);
     }
     brelse(bp);
 
@@ -452,7 +452,7 @@ bmap(struct inode *ip, uint bn)
     bn = bn % NINDIRECT;
     if((addr = a[bn]) == 0){
         a[bn] = addr = balloc(ip->dev);
-        wrap_log_write(bp, 455);
+        log_write(bp);
     }
     brelse(bp);
     return addr;

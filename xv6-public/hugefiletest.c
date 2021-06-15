@@ -6,7 +6,7 @@
 
 #define FILESIZE        (16*1024*1024)  // 16 MB
 #define BUFSIZE         512
-#define BUF_PER_FILE    ((FILESIZE) / (BUFSIZE))
+#define BUF_PER_FILE    ((FILESIZE) / (BUFSIZE)) // 32768
 #define NUM_STRESS      4
 
 int

@@ -6,7 +6,7 @@
 
 #define FILESIZE        (130*512)  
 #define BUFSIZE         512
-#define BUF_PER_FILE    ((FILESIZE) / (BUFSIZE))
+#define BUF_PER_FILE    ((FILESIZE) / (BUFSIZE)) //130
 
 int
 main(int argc, char *argv[])
@@ -43,7 +43,7 @@ main(int argc, char *argv[])
     close(fd);
 
     printf(1, "2. sync check\n");
-    fd = open("synctestfile2", O_CREATE | O_RDWR);
+    fd = open("synctestfile2", O_CREATE | O_RDWR); // panic
     for(i = 0; i < BUF_PER_FILE; i++) {
       if (i % 100 == 0){
         printf(1, "%d bytes written\n", i * BUFSIZE);
